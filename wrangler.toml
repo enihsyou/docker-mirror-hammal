@@ -1,11 +1,12 @@
 # code: language=toml
-# match the name to your Cloudflare worker's name is suggested.
+# match the name with your Cloudflare worker's name is suggested.
 name = "docker-mirror-hammal"
 main = "src/index.ts"
 compatibility_date = "2024-06-08"
 
 kv_namespaces = [
 	# replace the id with your own kv namespace id
-	# or provide with the environment variable
-	{ binding = "HAMMAL_CACHE", id = "${HAMMAL_CACHE_BINDING_ID}" }
+	# as cited from https://github.com/cloudflare/wrangler-legacy/issues/209#issuecomment-541654484
+	# everything in a wrangler.toml is committable to publicly accessible version control :)
+	{ binding = "HAMMAL_CACHE", id = "103f99a3a4574dc9a80b8a87d0ecf4e3" }
 ]
