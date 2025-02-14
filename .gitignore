@@ -2,5 +2,3 @@ dist
 node_modules
 transpiled
 worker
-wrangler.toml
-!wrangler.toml.sample

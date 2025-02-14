@@ -1,7 +1,7 @@
 {
-  "name": "pname",
+  "name": "hammal",
   "version": "1.0.0",
-  "description": "Cloudflare worker TypeScript template",
+  "description": "docker-registry proxy run in cloudflare workers",
   "main": "index.js",
   "scripts": {
     "dev": "npx wrangler dev",
@@ -11,9 +11,9 @@
   "author": "author",
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240722.0",
-    "prettier": "^3.3.3",
-    "typescript": "^5.5.4",
-    "wrangler": "^3.66.0"
+    "@cloudflare/workers-types": "^4.20250204.0",
+    "prettier": "^3.5.1",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.109.0"
   }
 }
