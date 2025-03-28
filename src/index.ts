@@ -14,12 +14,12 @@ export default {
     }
 
     try {
-      return handleDockerRegistryHttpV2Api(request, env, ctx)
+      return await handleDockerRegistryHttpV2Api(request, env, ctx)
     } catch (error) {
       if (error instanceof AppError) {
         return new Response(error.message, { status: error.statusCode })
       }
-      return new Response('Internal Server Error', { status: 500 })
+      throw error;
     }
   }
 } satisfies ExportedHandler;

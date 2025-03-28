@@ -12,16 +12,19 @@ export interface Token {
 }
 
 function parseAuthenticateStr(authenticateStr: string): Map<string, string> {
-  const bearer = authenticateStr.split(/\s+/, 2)
-  if (bearer.length != 2 && bearer[0].toLowerCase() !== 'bearer') {
+  const splits = authenticateStr.split(/\s+/)
+  const bearer = splits.shift()
+  if (!bearer || bearer.toLowerCase() !== 'bearer') {
     throw new AppError(`Invalid Www-Authenticate ${authenticateStr}`, 401)
   }
-  const params = bearer[1].split(',')
+  const params = splits.join().split(',')
   const groups = new Map<string, string>()
   for (const param of params) {
     const kvPair = param.split('=', 2)
     if (kvPair.length === 2) {
-      groups.set(kvPair[0], kvPair[1].replace(/^"|"$/g, ''))
+      const k = kvPair[0].trim()
+      const v = kvPair[1].trim()
+      groups.set(k, v.replace(/^"|"$/g, ''))
     }
   }
   return groups

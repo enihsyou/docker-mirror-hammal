@@ -30,7 +30,6 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
   const upstreamReq = new Request(upstreamUrl.toString(), request)
   upstreamReq.headers.set('Host', upstreamVal)
 
-  console.log(upstreamReq.url)
   const tokenProvider = new TokenProvider(env, ctx)
   const backend = new Backend(tokenProvider)
   return backend.proxy(upstreamReq)

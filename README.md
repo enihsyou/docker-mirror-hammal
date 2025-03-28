@@ -17,10 +17,15 @@ docker-mirror-hammal 是运行于 cloudflare workers 上的 Docker 镜像加速�
     ```json
     {
       "registry-mirrors": [
-        "https://docker-registry-skipauth.nilou.workers.dev"
+        "https://docker-mirror-hammal.nilou.workers.dev"
       ]
     }
     ```
+
+    其它公共的镜像列表有：
+    - <https://gist.github.com/y0ngb1n/7e8f16af3242c7815e7ca2f0833d3ea6>
+    - <https://www.mliev.com/docs/1ms.run/mirror-list>
+    - <https://status.daocloud.io/status/docker>
 
 2. **公共镜像代理测速**
 
@@ -32,11 +37,9 @@ docker-mirror-hammal 是运行于 cloudflare workers 上的 Docker 镜像加速�
     向 Docker Registry HTTP v2 API 请求中添加 `upstream` 参数，指定上游源域名或URL，服务会尝试以公共身份完成认证并转发响应。
     对源端传来的重定向响应（307）会原样返回，实际下载不经过本服务。
 
-    作为示例，这个 URL 会代理访问 `https://docker.m.daocloud.io/v2/library/alpine/manifests/latest`
+    作为示例，这个 URL 会代理访问 [`https://docker.1ms.run/v2/library/alpine/manifests/latest`](https://docker.1ms.run/v2/library/alpine/manifests/latest)
 
-    ```http
-    https://docker-registry-skipauth.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.m.daocloud.io
-    ```
+    [`https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.1ms.run`](https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.1ms.run)
 
     > 受账户计划和账单限制，作者不保证此链接可用性，可以自行部署 Cloudflare Workers
 
@@ -57,6 +60,7 @@ docker-mirror-hammal 是运行于 cloudflare workers 上的 Docker 镜像加速�
    使用 Wrangler 工具发布 Worker：
 
    ```bash
+   bun run wrangler types
    bun run wrangler publish
    ```
 
