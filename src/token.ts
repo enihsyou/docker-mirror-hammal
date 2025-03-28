@@ -1,3 +1,5 @@
+import { AppError } from "."
+
 interface WwwAuthenticate {
   realm: string
   service: string
@@ -9,40 +11,59 @@ export interface Token {
   expires_in: number
 }
 
-function parseAuthenticateStr(authenticateStr: string): WwwAuthenticate {
+function parseAuthenticateStr(authenticateStr: string): Map<string, string> {
   const bearer = authenticateStr.split(/\s+/, 2)
   if (bearer.length != 2 && bearer[0].toLowerCase() !== 'bearer') {
-    throw new Error(`Invalid Www-Authenticate ${authenticateStr}`)
+    throw new AppError(`Invalid Www-Authenticate ${authenticateStr}`, 401)
   }
   const params = bearer[1].split(',')
-  let get_param = function(name: string): string {
-    for (const param of params) {
-      const kvPair = param.split('=', 2)
-      if (kvPair.length !== 2 || kvPair[0] !== name) {
-        continue
-      }
-      return kvPair[1].replace(/['"]+/g, '')
+  const groups = new Map<string, string>()
+  for (const param of params) {
+    const kvPair = param.split('=', 2)
+    if (kvPair.length === 2) {
+      groups.set(kvPair[0], kvPair[1].replace(/^"|"$/g, ''))
     }
-    return ''
   }
-  return {
-    realm: get_param('realm'),
-    service: get_param('service'),
-    scope: get_param('scope'),
+  return groups
+}
+
+// 根据请求路径确定scope
+// https://distribution.github.io/distribution/spec/auth/token/
+function scopeFromRequestPath(urlpath: string): string {
+  if (urlpath === '/v2/') {
+    // 任意字符串都行
+    return "any";
   }
+  
+  // 针对不同的API端点确定合适的scope
+  // https://docs.docker.com/registry/spec/api/
+  const readOnlyEndpoints = [
+    new RegExp('^/v2/(?<repo>[^/]+(?:/[^/]+)*)/blobs/'),     // Get blob
+    new RegExp('^/v2/(?<repo>[^/]+(?:/[^/]+)*)/manifests/'), // Get image manifest
+    new RegExp('^/v2/(?<repo>[^/]+(?:/[^/]+)*)/tags/list$'), // List image tags
+  ];
+
+  // Check each pattern and extract repo name if matched
+  for (const pattern of readOnlyEndpoints) {
+    const match = pattern.exec(urlpath);
+    if (match && match.groups?.repo) {
+      return `repository:${match.groups.repo}:pull`;
+    }
+  }
+
+  // 无法匹配到任何已知的API端点，随便给一个触发错误
+  return "any";
 }
 
 export class TokenProvider {
-  private username: string | undefined
-  private password: string | undefined
 
-  constructor(username?: string, password?: string) {
-    this.username = username
-    this.password = password
-  }
+  constructor(
+    private readonly env: Env,
+    private readonly ctx: ExecutionContext,
+  ) { }
 
   private async authenticateCacheKey(wwwAuthenticate: WwwAuthenticate): Promise<string> {
-    const keyStr = `${this.username}:${this.password}/${wwwAuthenticate.realm}/${wwwAuthenticate.service}/${wwwAuthenticate.scope}`
+    const keyStr = `${wwwAuthenticate.realm}/${wwwAuthenticate.service}/${wwwAuthenticate.scope}`
     const keyStrText = new TextEncoder().encode(keyStr)
     const digestArray = await crypto.subtle.digest({ name: 'SHA-256' }, keyStrText)
     const digestUint8Array = new Uint8Array(digestArray)
@@ -55,18 +76,21 @@ export class TokenProvider {
   }
 
   private async tokenFromCache(cacheKey: string): Promise<Token | null> {
-    const value = await HAMMAL_CACHE.get(cacheKey)
+    const value = await this.env.HAMMAL_CACHE.get(cacheKey)
     if (value === null) {
       return null
     }
     return JSON.parse(value)
   }
 
-  private async tokenToCache(cacheKey: string, token: Token) {
-    await HAMMAL_CACHE.put(cacheKey, JSON.stringify(token), { expirationTtl: token.expires_in })
+  private async tokenIntoCache(cacheKey: string, token: Token) {
+    const fallbackTTL = 300 // 5 min
+    await this.env.HAMMAL_CACHE.put(cacheKey, JSON.stringify(token), {
+      expirationTtl: token.expires_in || fallbackTTL,
+    })
   }
 
-  private async fetchToken(wwwAuthenticate: WwwAuthenticate): Promise<Token> {
+  private async tokenFromRemote(wwwAuthenticate: WwwAuthenticate): Promise<Token> {
     const url = new URL(wwwAuthenticate.realm)
     if (wwwAuthenticate.service.length) {
       url.searchParams.set('service', wwwAuthenticate.service)
@@ -74,25 +98,34 @@ export class TokenProvider {
     if (wwwAuthenticate.scope.length) {
       url.searchParams.set('scope', wwwAuthenticate.scope)
     }
-    // TODO: support basic auth
+
     const response = await fetch(url.toString(), { method: 'GET', headers: {} })
     if (response.status !== 200) {
-      throw new Error(`Unable to fetch token from ${url.toString()} status code ${response.status}`)
+      const text = await response.text()
+      throw new AppError(`Failed to fetch token: ${text}`, response.status)
     }
     const body = await response.json<any>()
     return { token: body.token, expires_in: body.expires_in }
   }
 
-  async token(authenticateStr: string): Promise<Token> {
-    const wwwAuthenticate: WwwAuthenticate = parseAuthenticateStr(authenticateStr)
-    const cacheKey = await this.authenticateCacheKey(wwwAuthenticate)
+  async token(authenticateStr: string, urlpath: string): Promise<Token> {
+    const authParams = parseAuthenticateStr(authenticateStr)
+    const authObject: WwwAuthenticate = {
+      realm: authParams.get('realm') || '',
+      service: authParams.get('service') || '',
+      scope: authParams.get('scope') || scopeFromRequestPath(urlpath),
+    }
+    if (Object.values(authObject).some(value => value.length === 0)) {
+      throw new AppError('Missing authenticate parameters', 401)
+    }
+
+    const cacheKey = await this.authenticateCacheKey(authObject)
     const cachedToken: Token | null = await this.tokenFromCache(cacheKey)
     if (cachedToken !== null) {
       return cachedToken
     }
-    const token: Token = await this.fetchToken(wwwAuthenticate)
-    await this.tokenToCache(cacheKey, token)
+    const token = await this.tokenFromRemote(authObject)
+    this.ctx.waitUntil(this.tokenIntoCache(cacheKey, token))
     return token
   }
 }
-
