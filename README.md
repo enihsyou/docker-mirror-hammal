@@ -35,13 +35,15 @@ docker-mirror-hammal 是运行于 cloudflare workers 上的 Docker 镜像加速�
     使用本服务作为代理，可绕过动态认证过程，直接跳转到 blob 下载链接，进而实现镜像测速。
 
     向 Docker Registry HTTP v2 API 请求中添加 `upstream` 参数，指定上游源域名或URL，服务会尝试以公共身份完成认证并转发响应。
-    对源端传来的重定向响应（307）会原样返回，实际下载不经过本服务。
+    对源端传来的重定向响应（307）会原样返回，实际下载不经过本服务。作为示例：
 
-    作为示例，这个 URL 会代理访问 [`https://docker.1ms.run/v2/library/alpine/manifests/latest`](https://docker.1ms.run/v2/library/alpine/manifests/latest)
-
-    [`https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.1ms.run`](https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.1ms.run)
+    - [`/v2/library/alpine/manifests/latest?upstream=docker.1ms.run`](https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/manifests/latest?upstream=docker.1ms.run) 这个 URL 会代理访问 [`https://docker.1ms.run/v2/library/alpine/manifests/latest`](https://docker.1ms.run/v2/library/alpine/manifests/latest) 返回
+      library/alpine 镜像的 manifest 文件
+    - [`/v2/library/alpine/blobs/sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870?upstream=docker.1ms.run`](https://docker-mirror-hammal.nilou.workers.dev/v2/library/alpine/blobs/sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870?upstream=docker.1ms.run) 这个 URL 会代理访问 [`https://docker.1ms.run/v2/library/alpine/blobs/sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870`](https://docker.1ms.run/v2/library/alpine/blobs/sha256:f18232174bc91741fdf3da96d85011092101a032a93a388b79e99e69c2d5c870) 重定向至 library/alpine 一层镜像的下载地址
 
     > 受账户计划和账单限制，作者不保证此链接可用性，可以自行部署 Cloudflare Workers
+
+    在 [Gist - enihsyou/docker-mirror-speedtest.md](https://gist.github.com/enihsyou/dafa9fca2e0db2623ecf7db500842b87) 有一个 PowerShell 测速脚本，可以用来选择适合你的镜像地址。
 
 ## 安装和配置
 
